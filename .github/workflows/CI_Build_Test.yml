@@ -1,0 +1,72 @@
+name: CI Build and Test
+
+# Trigger the workflow on push or pull request to the main or stable branches
+on:
+  push:
+    branches:
+      - main
+      - stable
+  pull_request:
+    branches:
+      - main
+      - stable
+
+jobs:
+  build:
+    name: Build PowerToys
+    runs-on: windows-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up MSBuild
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+
+      # Set up Visual Studio with required components
+      - name: Setup Visual Studio
+        uses: microsoft/setup-visualstudio@v1
+        with:
+          vs-version: 2022
+          components: |
+            Microsoft.VisualStudio.Workload.ManagedDesktop
+            Microsoft.VisualStudio.Workload.NativeDesktop
+            Microsoft.VisualStudio.Component.VC.ATL
+
+      # Install dependencies (e.g., nuget packages)
+      - name: Install NuGet packages
+        run: nuget restore PowerToys.sln
+
+      # Build the solution
+      - name: Build solution
+        run: msbuild PowerToys.sln /p:Configuration=Release
+
+  test:
+    name: Run Tests
+    runs-on: windows-latest
+    needs: build
+
+    steps:
+      # Checkout the repository (optional if tests need codebase)
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Run unit tests
+      - name: Run Unit Tests
+        run: |
+          vstest.console.exe **\*.Test.dll --Logger:trx
+
+  artifact:
+    name: Save Artifacts
+    runs-on: windows-latest
+    needs: test
+
+    steps:
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: PowerToys-Build
+          path: |
+            ./x64/Release/*
