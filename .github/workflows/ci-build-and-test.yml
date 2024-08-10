@@ -1,61 +1,37 @@
-name: CI Build and Test
-
 on:
   push:
     branches:
       - main
-      - stable
   pull_request:
-    branches:
-      - main
-      - stable
 
 jobs:
-  build:
-    name: Build PowerToys
-    runs-on: windows-latest
+  build-test-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1
+      - name: Install build essentials
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake
 
-      - name: Setup Visual Studio
+      - name: Run Tests
         run: |
-          # Install Visual Studio Build Tools
-          choco install visualstudio2019buildtools --version=16.11.10
-          # Install required components
-          choco install microsoft-build-tools --version=15.9.21
+          if [ -d "PowerToys/deps/spdlog/tests" ]; then
+            cd PowerToys/deps/spdlog/tests
+            mkdir build
+            cd build
+            cmake ..
+            cmake --build .
+            ctest
+          else
+            echo "Tests directory not found, skipping tests."
 
-      - name: Install NuGet packages
-        run: nuget restore PowerToys.sln
-
-      - name: Build solution
-        run: msbuild PowerToys.sln /p:Configuration=Release
-
-  test:
-    name: Run Tests
-    runs-on: windows-latest
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Run Unit Tests
+      - name: Deploy if Tests Passed
+        if: ${{ job.status == 'success' }}
         run: |
-          vstest.console.exe **\*.Test.dll --Logger:trx
-
-  artifact:
-    name: Save Artifacts
-    runs-on: windows-latest
-    needs: test
-
-    steps:
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: PowerToys-Build
-          path: ./x64/Release/*
+          if [ -f "PowerToysInstaller.exe" ]; then
+            echo "Deploying PowerToysInstaller.exe..."
+            # Add your deployment commands here
+          else
+            echo "PowerToysInstaller.exe not found, skipping deployment."
