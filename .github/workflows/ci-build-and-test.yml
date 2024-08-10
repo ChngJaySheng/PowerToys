@@ -1,3 +1,5 @@
+name: CI Build and Test
+
 on:
   push:
     branches:
@@ -19,13 +21,14 @@ jobs:
         run: |
           if [ -d "PowerToys/deps/spdlog/tests" ]; then
             cd PowerToys/deps/spdlog/tests
-            mkdir build
+            mkdir -p build
             cd build
             cmake ..
             cmake --build .
             ctest
           else
             echo "Tests directory not found, skipping tests."
+          fi
 
       - name: Deploy if Tests Passed
         if: ${{ job.status == 'success' }}
@@ -35,3 +38,4 @@ jobs:
             # Add your deployment commands here
           else
             echo "PowerToysInstaller.exe not found, skipping deployment."
+          fi
